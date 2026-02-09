@@ -13,16 +13,16 @@ import { Mic, Play, Download, Trash2, Volume2, Zap, Music, Brain, AudioLines, Al
 import { toast } from '@/hooks/use-toast';
 
 const PREDEFINED_VOICES = [
-  { id: 'en-US', name: 'English (US)', description: 'American English' },
-  { id: 'en-GB', name: 'English (UK)', description: 'British English' },
-  { id: 'en-AU', name: 'English (AU)', description: 'Australian English' },
-  { id: 'es-ES', name: 'Spanish', description: 'Spanish' },
-  { id: 'fr-FR', name: 'French', description: 'French' },
-  { id: 'de-DE', name: 'German', description: 'German' },
-  { id: 'it-IT', name: 'Italian', description: 'Italian' },
-  { id: 'pt-BR', name: 'Portuguese', description: 'Brazilian Portuguese' },
-  { id: 'ja-JP', name: 'Japanese', description: 'Japanese' },
-  { id: 'ko-KR', name: 'Korean', description: 'Korean' },
+  { id: 'longxiaochun', name: 'Xiaochun', description: 'Female, warm and friendly' },
+  { id: 'longxiaoxia', name: 'Xiaoxia', description: 'Female, sweet voice' },
+  { id: 'longlaotie', name: 'Laotie', description: 'Male, mature and steady' },
+  { id: 'longshu', name: 'Shu', description: 'Male, gentle and calm' },
+  { id: 'longjielidou', name: 'Jielidou', description: 'Child, cute and playful' },
+  { id: 'longshuo', name: 'Shuo', description: 'Male, energetic' },
+  { id: 'longyue', name: 'Yue', description: 'Female, elegant' },
+  { id: 'longfei', name: 'Fei', description: 'Male, broadcaster style' },
+  { id: 'longjing', name: 'Jing', description: 'Female, professional' },
+  { id: 'longmiao', name: 'Miao', description: 'Female, lively' },
 ];
 
 const TRAINING_PASSAGES = [
@@ -66,7 +66,7 @@ interface CustomVoice {
 
 export default function VoiceGeneratorPage() {
   const [text, setText] = useState('');
-  const [selectedVoice, setSelectedVoice] = useState('en-US');
+  const [selectedVoice, setSelectedVoice] = useState('longxiaochun');
   const [speed, setSpeed] = useState([1.0]);
   const [volume, setVolume] = useState([1.0]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -83,7 +83,7 @@ export default function VoiceGeneratorPage() {
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [trainingStage, setTrainingStage] = useState('');
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
-  const [mappedVoice, setMappedVoice] = useState('en-US');
+  const [mappedVoice, setMappedVoice] = useState('longxiaochun');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -356,7 +356,7 @@ export default function VoiceGeneratorPage() {
     
     // Reset to default if current voice was deleted
     if (selectedVoice === id) {
-      setSelectedVoice('en-US');
+      setSelectedVoice('longxiaochun');
     }
 
     toast({
@@ -749,7 +749,7 @@ export default function VoiceGeneratorPage() {
                             <div className="flex-1">
                               <div className="font-medium">{voice.name}</div>
                               <div className="text-sm text-muted-foreground">
-                                Created: {voice.createdAt.toLocaleString('en-US')}
+                                Created: {voice.createdAt.toLocaleString('longxiaochun')}
                               </div>
                             </div>
                             <Button
@@ -805,7 +805,7 @@ export default function VoiceGeneratorPage() {
                                   {audio.text}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  {audio.createdAt.toLocaleString('en-US')}
+                                  {audio.createdAt.toLocaleString('longxiaochun')}
                                 </p>
                               </div>
                               <div className="flex gap-2">

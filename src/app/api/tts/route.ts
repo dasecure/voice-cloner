@@ -1,68 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Google Translate TTS - simple and free
+// Qwen TTS voices - from CosyVoice
 const VALID_VOICES = [
-  { id: 'en-US', name: 'English (US)', description: 'American English' },
-  { id: 'en-GB', name: 'English (UK)', description: 'British English' },
-  { id: 'en-AU', name: 'English (AU)', description: 'Australian English' },
-  { id: 'es-ES', name: 'Spanish', description: 'Spanish' },
-  { id: 'fr-FR', name: 'French', description: 'French' },
-  { id: 'de-DE', name: 'German', description: 'German' },
-  { id: 'it-IT', name: 'Italian', description: 'Italian' },
-  { id: 'pt-BR', name: 'Portuguese', description: 'Brazilian Portuguese' },
-  { id: 'ja-JP', name: 'Japanese', description: 'Japanese' },
-  { id: 'ko-KR', name: 'Korean', description: 'Korean' },
+  { id: 'longxiaochun', name: 'Xiaochun', description: 'Female, warm and friendly' },
+  { id: 'longxiaoxia', name: 'Xiaoxia', description: 'Female, sweet voice' },
+  { id: 'longlaotie', name: 'Laotie', description: 'Male, mature and steady' },
+  { id: 'longshu', name: 'Shu', description: 'Male, gentle and calm' },
+  { id: 'longjielidou', name: 'Jielidou', description: 'Child, cute and playful' },
+  { id: 'longshuo', name: 'Shuo', description: 'Male, energetic' },
+  { id: 'longyue', name: 'Yue', description: 'Female, elegant' },
+  { id: 'longfei', name: 'Fei', description: 'Male, broadcaster style' },
+  { id: 'longjing', name: 'Jing', description: 'Female, professional' },
+  { id: 'longmiao', name: 'Miao', description: 'Female, lively' },
 ];
 
 const VOICE_IDS = VALID_VOICES.map(v => v.id);
 
-async function fetchGoogleTTS(text: string, lang: string, speed: number): Promise<Buffer> {
-  // Google TTS has a ~200 char limit per request, so we need to chunk
-  const chunks: string[] = [];
-  const maxLen = 200;
-  
-  let remaining = text;
-  while (remaining.length > 0) {
-    if (remaining.length <= maxLen) {
-      chunks.push(remaining);
-      break;
-    }
-    
-    // Find a good break point
-    let breakPoint = remaining.lastIndexOf(' ', maxLen);
-    if (breakPoint === -1) breakPoint = maxLen;
-    
-    chunks.push(remaining.slice(0, breakPoint));
-    remaining = remaining.slice(breakPoint).trim();
-  }
-
-  const audioBuffers: Buffer[] = [];
-  
-  for (const chunk of chunks) {
-    const encodedText = encodeURIComponent(chunk);
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${lang}&client=tw-ob&ttsspeed=${speed}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://translate.google.com/',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Google TTS failed: ${response.status}`);
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    audioBuffers.push(buffer);
-  }
-
-  return Buffer.concat(audioBuffers);
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const { text, voice = 'en-US', speed = 1.0 } = await req.json();
+    const { text, voice = 'longxiaochun', speed = 1.0 } = await req.json();
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json(
@@ -87,18 +43,72 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const selectedVoice = VOICE_IDS.includes(voice) ? voice : 'en-US';
+    const apiKey = process.env.DASHSCOPE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'TTS service not configured. Set DASHSCOPE_API_KEY in .env.local' },
+        { status: 500 }
+      );
+    }
+
+    const selectedVoice = VOICE_IDS.includes(voice) ? voice : 'longxiaochun';
+
+    // Call Qwen TTS API
+    const response = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'qwen3-tts-flash',
+        input: {
+          text: trimmedText,
+        },
+        parameters: {
+          voice: selectedVoice,
+          speed: speed,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Qwen TTS API Error:', errorData);
+      return NextResponse.json(
+        { error: errorData.message || 'Failed to generate speech' },
+        { status: response.status }
+      );
+    }
+
+    const result = await response.json();
     
-    // Google TTS speed: 0.24 (slow) to 1 (normal) - doesn't support faster
-    const ttsSpeed = speed < 1 ? Math.max(0.24, speed) : 1;
+    // Get the audio URL from the response
+    const audioUrl = result.output?.audio?.url;
+    if (!audioUrl) {
+      console.error('No audio URL in response:', result);
+      return NextResponse.json(
+        { error: 'No audio generated' },
+        { status: 500 }
+      );
+    }
 
-    const audioBuffer = await fetchGoogleTTS(trimmedText, selectedVoice, ttsSpeed);
+    // Fetch the audio file
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      return NextResponse.json(
+        { error: 'Failed to download audio' },
+        { status: 500 }
+      );
+    }
 
-    return new NextResponse(audioBuffer, {
+    const audioBuffer = await audioResponse.arrayBuffer();
+    
+    return new NextResponse(Buffer.from(audioBuffer), {
       status: 200,
       headers: {
-        'Content-Type': 'audio/mpeg',
-        'Content-Length': audioBuffer.length.toString(),
+        'Content-Type': 'audio/wav',
+        'Content-Length': audioBuffer.byteLength.toString(),
         'Cache-Control': 'no-cache',
       },
     });
