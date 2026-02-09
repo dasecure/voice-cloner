@@ -326,9 +326,24 @@ export default function VoiceGeneratorPage() {
                   </Button>
 
                   {currentAudio && (
-                    <audio key={currentAudio} controls autoPlay className="w-full">
-                      <source src={currentAudio} type="audio/wav" />
-                    </audio>
+                    <div className="space-y-2">
+                      <audio key={currentAudio} controls autoPlay className="w-full">
+                        <source src={currentAudio} type="audio/wav" />
+                      </audio>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = currentAudio;
+                          link.download = `qwen3-tts-preset-${Date.now()}.wav`;
+                          link.click();
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Save as WAV
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -420,9 +435,24 @@ export default function VoiceGeneratorPage() {
                   </Button>
 
                   {currentAudio && (
-                    <audio key={currentAudio} controls autoPlay className="w-full">
-                      <source src={currentAudio} type="audio/wav" />
-                    </audio>
+                    <div className="space-y-2">
+                      <audio key={currentAudio} controls autoPlay className="w-full">
+                        <source src={currentAudio} type="audio/wav" />
+                      </audio>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = currentAudio;
+                          link.download = `qwen3-tts-clone-${Date.now()}.wav`;
+                          link.click();
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Save Cloned Voice as WAV
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -481,9 +511,24 @@ export default function VoiceGeneratorPage() {
                   </Button>
 
                   {currentAudio && (
-                    <audio key={currentAudio} controls autoPlay className="w-full">
-                      <source src={currentAudio} type="audio/wav" />
-                    </audio>
+                    <div className="space-y-2">
+                      <audio key={currentAudio} controls autoPlay className="w-full">
+                        <source src={currentAudio} type="audio/wav" />
+                      </audio>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = currentAudio;
+                          link.download = `qwen3-tts-design-${Date.now()}.wav`;
+                          link.click();
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Save Designed Voice as WAV
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
