@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Mic, Play, Download, Trash2, Music, Brain, AudioLines, Wand2, Copy } from 'lucide-react';
+import { Mic, Play, Download, Trash2, Music, Brain, AudioLines, Wand2, Copy, Save, User } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const PRESET_SPEAKERS = [
@@ -45,6 +45,14 @@ interface GeneratedAudio {
   createdAt: Date;
 }
 
+interface SavedVoice {
+  id: string;
+  name: string;
+  audioDataUrl: string; // base64 data URL of the reference audio
+  referenceText: string;
+  createdAt: string;
+}
+
 export default function VoiceGeneratorPage() {
   const [text, setText] = useState('');
   const [selectedSpeaker, setSelectedSpeaker] = useState('Serena');
@@ -61,6 +69,10 @@ export default function VoiceGeneratorPage() {
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [referenceText, setReferenceText] = useState('');
   const [cloneText, setCloneText] = useState('');
+  const [voiceName, setVoiceName] = useState('');
+  const [savedVoices, setSavedVoices] = useState<SavedVoice[]>([]);
+  const [selectedSavedVoice, setSelectedSavedVoice] = useState<string>('');
+  const [useMode, setUseMode] = useState<'record' | 'saved'>('record');
 
   // Voice Design states
   const [voiceDescription, setVoiceDescription] = useState('');
@@ -70,11 +82,81 @@ export default function VoiceGeneratorPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Load saved voices from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('savedVoices');
+    if (saved) {
+      try {
+        setSavedVoices(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load saved voices', e);
+      }
+    }
+  }, []);
+
+  // Save voices to localStorage when changed
+  useEffect(() => {
+    if (savedVoices.length > 0) {
+      localStorage.setItem('savedVoices', JSON.stringify(savedVoices));
+    }
+  }, [savedVoices]);
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  const blobToDataUrl = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const saveVoice = async () => {
+    if (!recordingBlob) {
+      toast({ title: 'Error', description: 'No recording to save', variant: 'destructive' });
+      return;
+    }
+    if (!voiceName.trim()) {
+      toast({ title: 'Error', description: 'Please enter a name for this voice', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const audioDataUrl = await blobToDataUrl(recordingBlob);
+      const newVoice: SavedVoice = {
+        id: `voice-${Date.now()}`,
+        name: voiceName.trim(),
+        audioDataUrl,
+        referenceText: referenceText.trim(),
+        createdAt: new Date().toISOString(),
+      };
+
+      setSavedVoices(prev => [...prev, newVoice]);
+      setVoiceName('');
+      toast({ title: 'Success', description: `Voice "${newVoice.name}" saved successfully` });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to save voice', variant: 'destructive' });
+    }
+  };
+
+  const deleteVoice = (id: string) => {
+    setSavedVoices(prev => {
+      const updated = prev.filter(v => v.id !== id);
+      if (updated.length === 0) {
+        localStorage.removeItem('savedVoices');
+      }
+      return updated;
+    });
+    if (selectedSavedVoice === id) {
+      setSelectedSavedVoice('');
+    }
+    toast({ title: 'Deleted', description: 'Voice removed' });
+  };
 
   const handleGenerate = async (mode: 'custom_voice' | 'voice_clone' | 'voice_design') => {
     let inputText = '';
@@ -87,20 +169,41 @@ export default function VoiceGeneratorPage() {
     } else if (mode === 'voice_clone') {
       inputText = cloneText;
       body.text = cloneText.trim();
-      if (!recordingBlob) {
-        toast({ title: 'Error', description: 'Please record your voice first', variant: 'destructive' });
-        return;
+
+      let audioToUpload: Blob | null = null;
+      let refText = '';
+
+      if (useMode === 'saved' && selectedSavedVoice) {
+        // Use saved voice
+        const voice = savedVoices.find(v => v.id === selectedSavedVoice);
+        if (!voice) {
+          toast({ title: 'Error', description: 'Selected voice not found', variant: 'destructive' });
+          return;
+        }
+        // Convert data URL back to blob
+        const response = await fetch(voice.audioDataUrl);
+        audioToUpload = await response.blob();
+        refText = voice.referenceText;
+      } else {
+        // Use new recording
+        if (!recordingBlob) {
+          toast({ title: 'Error', description: 'Please record your voice first', variant: 'destructive' });
+          return;
+        }
+        audioToUpload = recordingBlob;
+        refText = referenceText;
       }
-      // Upload the audio first
+
+      // Upload the audio
       const formData = new FormData();
-      formData.append('audio', recordingBlob, 'recording.wav');
-      
+      formData.append('audio', audioToUpload, 'recording.wav');
+
       try {
         const uploadRes = await fetch('/api/tts', { method: 'PUT', body: formData });
         const uploadData = await uploadRes.json();
         if (!uploadRes.ok) throw new Error(uploadData.error);
         body.reference_audio = uploadData.url;
-        if (referenceText.trim()) body.reference_text = referenceText.trim();
+        if (refText.trim()) body.reference_text = refText.trim();
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to upload audio', variant: 'destructive' });
         return;
@@ -251,10 +354,11 @@ export default function VoiceGeneratorPage() {
           </div>
 
           <Tabs defaultValue="preset" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="preset">Preset Voice</TabsTrigger>
               <TabsTrigger value="clone">Voice Clone</TabsTrigger>
               <TabsTrigger value="design">Voice Design</TabsTrigger>
+              <TabsTrigger value="saved">My Voices</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
@@ -330,8 +434,8 @@ export default function VoiceGeneratorPage() {
                       <audio key={currentAudio} controls autoPlay className="w-full">
                         <source src={currentAudio} type="audio/wav" />
                       </audio>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full"
                         onClick={() => {
                           const link = document.createElement('a');
@@ -357,54 +461,116 @@ export default function VoiceGeneratorPage() {
                     <Copy className="w-5 h-5" />
                     Voice Cloning
                   </CardTitle>
-                  <CardDescription>Clone a voice from just 3 seconds of audio</CardDescription>
+                  <CardDescription>Clone a voice from audio or use a saved voice</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>1. Record your voice sample (3+ seconds)</Label>
-                    <div className="flex gap-2 items-center">
-                      {!recordingUrl ? (
-                        !isRecording ? (
-                          <Button onClick={startRecording} variant="outline">
-                            <AudioLines className="mr-2 h-4 w-4" />
-                            Start Recording
-                          </Button>
-                        ) : (
-                          <Button onClick={stopRecording} variant="destructive">
-                            <AudioLines className="mr-2 h-4 w-4" />
-                            Stop ({formatTime(recordingTime)})
-                          </Button>
-                        )
-                      ) : (
-                        <Button onClick={() => { setRecordingUrl(null); setRecordingBlob(null); }} variant="outline">
-                          Re-record
-                        </Button>
-                      )}
-                      {isRecording && (
-                        <div className="flex items-center gap-2 text-destructive">
-                          <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
-                          Recording...
+                  {/* Toggle between record new and use saved */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant={useMode === 'record' ? 'default' : 'outline'}
+                      onClick={() => setUseMode('record')}
+                      className="flex-1"
+                    >
+                      <Mic className="mr-2 h-4 w-4" />
+                      Record New
+                    </Button>
+                    <Button
+                      variant={useMode === 'saved' ? 'default' : 'outline'}
+                      onClick={() => setUseMode('saved')}
+                      className="flex-1"
+                      disabled={savedVoices.length === 0}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Use Saved ({savedVoices.length})
+                    </Button>
+                  </div>
+
+                  {useMode === 'record' ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>1. Record your voice sample (3+ seconds)</Label>
+                        <div className="flex gap-2 items-center">
+                          {!recordingUrl ? (
+                            !isRecording ? (
+                              <Button onClick={startRecording} variant="outline">
+                                <AudioLines className="mr-2 h-4 w-4" />
+                                Start Recording
+                              </Button>
+                            ) : (
+                              <Button onClick={stopRecording} variant="destructive">
+                                <AudioLines className="mr-2 h-4 w-4" />
+                                Stop ({formatTime(recordingTime)})
+                              </Button>
+                            )
+                          ) : (
+                            <Button onClick={() => { setRecordingUrl(null); setRecordingBlob(null); }} variant="outline">
+                              Re-record
+                            </Button>
+                          )}
+                          {isRecording && (
+                            <div className="flex items-center gap-2 text-destructive">
+                              <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
+                              Recording...
+                            </div>
+                          )}
+                        </div>
+                        {recordingUrl && (
+                          <audio controls className="w-full mt-2">
+                            <source src={recordingUrl} type="audio/wav" />
+                          </audio>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>2. Reference text (what you said - optional but recommended)</Label>
+                        <Input
+                          placeholder="Type what you said in the recording..."
+                          value={referenceText}
+                          onChange={(e) => setReferenceText(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Save voice option */}
+                      {recordingBlob && (
+                        <div className="p-4 border rounded-lg bg-muted/50 space-y-2">
+                          <Label>Save this voice for reuse</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Voice name (e.g., My Voice)"
+                              value={voiceName}
+                              onChange={(e) => setVoiceName(e.target.value)}
+                            />
+                            <Button onClick={saveVoice} disabled={!voiceName.trim()}>
+                              <Save className="mr-2 h-4 w-4" />
+                              Save
+                            </Button>
+                          </div>
                         </div>
                       )}
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Select a saved voice</Label>
+                      <Select value={selectedSavedVoice} onValueChange={setSelectedSavedVoice}>
+                        <SelectTrigger><SelectValue placeholder="Choose a voice..." /></SelectTrigger>
+                        <SelectContent>
+                          {savedVoices.map((v) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedSavedVoice && (
+                        <p className="text-sm text-muted-foreground">
+                          Reference: {savedVoices.find(v => v.id === selectedSavedVoice)?.referenceText || '(none)'}
+                        </p>
+                      )}
                     </div>
-                    {recordingUrl && (
-                      <audio controls className="w-full mt-2">
-                        <source src={recordingUrl} type="audio/wav" />
-                      </audio>
-                    )}
-                  </div>
+                  )}
 
                   <div className="space-y-2">
-                    <Label>2. Reference text (what you said in the recording - optional but recommended)</Label>
-                    <Input
-                      placeholder="Type what you said in the recording..."
-                      value={referenceText}
-                      onChange={(e) => setReferenceText(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>3. Text to generate with cloned voice</Label>
+                    <Label>{useMode === 'record' ? '3.' : '2.'} Text to generate with cloned voice</Label>
                     <Textarea
                       placeholder="Enter text for the cloned voice to speak..."
                       value={cloneText}
@@ -427,7 +593,7 @@ export default function VoiceGeneratorPage() {
 
                   <Button
                     onClick={() => handleGenerate('voice_clone')}
-                    disabled={isGenerating || !cloneText.trim() || !recordingBlob}
+                    disabled={isGenerating || !cloneText.trim() || (useMode === 'record' ? !recordingBlob : !selectedSavedVoice)}
                     className="w-full"
                     size="lg"
                   >
@@ -439,8 +605,8 @@ export default function VoiceGeneratorPage() {
                       <audio key={currentAudio} controls autoPlay className="w-full">
                         <source src={currentAudio} type="audio/wav" />
                       </audio>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full"
                         onClick={() => {
                           const link = document.createElement('a');
@@ -515,8 +681,8 @@ export default function VoiceGeneratorPage() {
                       <audio key={currentAudio} controls autoPlay className="w-full">
                         <source src={currentAudio} type="audio/wav" />
                       </audio>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full"
                         onClick={() => {
                           const link = document.createElement('a');
@@ -528,6 +694,65 @@ export default function VoiceGeneratorPage() {
                         <Download className="mr-2 h-4 w-4" />
                         Save Designed Voice as WAV
                       </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Saved Voices Tab */}
+            <TabsContent value="saved" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    My Saved Voices
+                  </CardTitle>
+                  <CardDescription>Manage your cloned voices for reuse</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {savedVoices.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <User className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <p>No saved voices yet</p>
+                      <p className="text-sm">Record a voice in the Voice Clone tab and save it</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {savedVoices.map((voice) => (
+                        <Card key={voice.id} className="p-4">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <h4 className="font-medium">{voice.name}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Reference: {voice.referenceText || '(none)'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Created: {new Date(voice.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const audio = new Audio(voice.audioDataUrl);
+                                  audio.play();
+                                }}
+                              >
+                                <Play className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => deleteVoice(voice.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
                     </div>
                   )}
                 </CardContent>
