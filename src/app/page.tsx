@@ -225,6 +225,14 @@ export default function VoiceGeneratorPage() {
   // Recording functions
   const startRecording = async () => {
     try {
+      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        toast({
+          title: 'Error',
+          description: 'Audio recording is not supported. Make sure you\'re using HTTPS or localhost.',
+          variant: 'destructive',
+        });
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
