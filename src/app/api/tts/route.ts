@@ -46,11 +46,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (!REPLICATE_API_KEY) {
+      console.error('REPLICATE_API_TOKEN not found in environment');
       return NextResponse.json(
-        { error: 'TTS service not configured. Set REPLICATE_API_TOKEN in .env.local' },
+        { error: 'TTS service not configured. Set REPLICATE_API_TOKEN in .env.local and restart the dev server' },
         { status: 500 }
       );
     }
+    
+    console.log('Starting TTS generation with mode:', mode);
 
     // Build input based on mode
     const input: Record<string, string> = {
@@ -95,19 +98,29 @@ export async function POST(req: NextRequest) {
     });
 
     if (!createResponse.ok) {
-      const error = await createResponse.json();
-      console.error('Replicate API Error:', error);
-      return NextResponse.json(
-        { error: error.detail || 'Failed to start TTS generation' },
-        { status: createResponse.status }
-      );
+      const errorText = await createResponse.text();
+      console.error('Replicate API Error:', createResponse.status, errorText);
+      try {
+        const error = JSON.parse(errorText);
+        return NextResponse.json(
+          { error: error.detail || error.message || 'Failed to start TTS generation' },
+          { status: createResponse.status }
+        );
+      } catch {
+        return NextResponse.json(
+          { error: `API error: ${createResponse.status}` },
+          { status: createResponse.status }
+        );
+      }
     }
+    
+    console.log('Prediction started, polling for result...');
 
     const prediction = await createResponse.json();
 
-    // Poll for completion
+    // Poll for completion (cold start can take 30-60s)
     let result = prediction;
-    const maxAttempts = 60;
+    const maxAttempts = 120;
     for (let i = 0; i < maxAttempts && result.status !== 'succeeded' && result.status !== 'failed'; i++) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
