@@ -13,16 +13,16 @@ import { Mic, Play, Download, Trash2, Volume2, Zap, Music, Brain, AudioLines, Al
 import { toast } from '@/hooks/use-toast';
 
 const PREDEFINED_VOICES = [
-  { id: 'en-US-GuyNeural', name: 'Guy', description: 'Male, American' },
-  { id: 'en-US-JennyNeural', name: 'Jenny', description: 'Female, American' },
-  { id: 'en-US-AriaNeural', name: 'Aria', description: 'Female, American' },
-  { id: 'en-US-DavisNeural', name: 'Davis', description: 'Male, American' },
-  { id: 'en-US-AmberNeural', name: 'Amber', description: 'Female, American' },
-  { id: 'en-US-AnaNeural', name: 'Ana', description: 'Female, American (Child)' },
-  { id: 'en-US-ChristopherNeural', name: 'Christopher', description: 'Male, American' },
-  { id: 'en-US-EricNeural', name: 'Eric', description: 'Male, American' },
-  { id: 'en-GB-SoniaNeural', name: 'Sonia', description: 'Female, British' },
-  { id: 'en-GB-RyanNeural', name: 'Ryan', description: 'Male, British' },
+  { id: 'en-US', name: 'English (US)', description: 'American English' },
+  { id: 'en-GB', name: 'English (UK)', description: 'British English' },
+  { id: 'en-AU', name: 'English (AU)', description: 'Australian English' },
+  { id: 'es-ES', name: 'Spanish', description: 'Spanish' },
+  { id: 'fr-FR', name: 'French', description: 'French' },
+  { id: 'de-DE', name: 'German', description: 'German' },
+  { id: 'it-IT', name: 'Italian', description: 'Italian' },
+  { id: 'pt-BR', name: 'Portuguese', description: 'Brazilian Portuguese' },
+  { id: 'ja-JP', name: 'Japanese', description: 'Japanese' },
+  { id: 'ko-KR', name: 'Korean', description: 'Korean' },
 ];
 
 const TRAINING_PASSAGES = [
@@ -66,7 +66,7 @@ interface CustomVoice {
 
 export default function VoiceGeneratorPage() {
   const [text, setText] = useState('');
-  const [selectedVoice, setSelectedVoice] = useState('en-US-GuyNeural');
+  const [selectedVoice, setSelectedVoice] = useState('en-US');
   const [speed, setSpeed] = useState([1.0]);
   const [volume, setVolume] = useState([1.0]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -83,7 +83,7 @@ export default function VoiceGeneratorPage() {
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [trainingStage, setTrainingStage] = useState('');
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
-  const [mappedVoice, setMappedVoice] = useState('en-US-GuyNeural');
+  const [mappedVoice, setMappedVoice] = useState('en-US');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -356,7 +356,7 @@ export default function VoiceGeneratorPage() {
     
     // Reset to default if current voice was deleted
     if (selectedVoice === id) {
-      setSelectedVoice('en-US-GuyNeural');
+      setSelectedVoice('en-US');
     }
 
     toast({
