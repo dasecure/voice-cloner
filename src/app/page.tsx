@@ -13,16 +13,16 @@ import { Mic, Play, Download, Trash2, Volume2, Zap, Music, Brain, AudioLines, Al
 import { toast } from '@/hooks/use-toast';
 
 const PREDEFINED_VOICES = [
-  { id: 'longxiaochun', name: 'Xiaochun', description: 'Female, warm and friendly' },
-  { id: 'longxiaoxia', name: 'Xiaoxia', description: 'Female, sweet voice' },
-  { id: 'longlaotie', name: 'Laotie', description: 'Male, mature and steady' },
-  { id: 'longshu', name: 'Shu', description: 'Male, gentle and calm' },
-  { id: 'longjielidou', name: 'Jielidou', description: 'Child, cute and playful' },
-  { id: 'longshuo', name: 'Shuo', description: 'Male, energetic' },
-  { id: 'longyue', name: 'Yue', description: 'Female, elegant' },
-  { id: 'longfei', name: 'Fei', description: 'Male, broadcaster style' },
-  { id: 'longjing', name: 'Jing', description: 'Female, professional' },
-  { id: 'longmiao', name: 'Miao', description: 'Female, lively' },
+  { id: 'en-US-GuyNeural', name: 'Guy', description: 'Male, American' },
+  { id: 'en-US-JennyNeural', name: 'Jenny', description: 'Female, American' },
+  { id: 'en-US-AriaNeural', name: 'Aria', description: 'Female, American' },
+  { id: 'en-US-DavisNeural', name: 'Davis', description: 'Male, American' },
+  { id: 'en-US-AmberNeural', name: 'Amber', description: 'Female, American' },
+  { id: 'en-US-AnaNeural', name: 'Ana', description: 'Female, American (Child)' },
+  { id: 'en-US-ChristopherNeural', name: 'Christopher', description: 'Male, American' },
+  { id: 'en-US-EricNeural', name: 'Eric', description: 'Male, American' },
+  { id: 'en-GB-SoniaNeural', name: 'Sonia', description: 'Female, British' },
+  { id: 'en-GB-RyanNeural', name: 'Ryan', description: 'Male, British' },
 ];
 
 const TRAINING_PASSAGES = [
@@ -66,7 +66,7 @@ interface CustomVoice {
 
 export default function VoiceGeneratorPage() {
   const [text, setText] = useState('');
-  const [selectedVoice, setSelectedVoice] = useState('longxiaochun');
+  const [selectedVoice, setSelectedVoice] = useState('en-US-GuyNeural');
   const [speed, setSpeed] = useState([1.0]);
   const [volume, setVolume] = useState([1.0]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -83,7 +83,7 @@ export default function VoiceGeneratorPage() {
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [trainingStage, setTrainingStage] = useState('');
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
-  const [mappedVoice, setMappedVoice] = useState('longxiaochun');
+  const [mappedVoice, setMappedVoice] = useState('en-US-GuyNeural');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -356,7 +356,7 @@ export default function VoiceGeneratorPage() {
     
     // Reset to default if current voice was deleted
     if (selectedVoice === id) {
-      setSelectedVoice('longxiaochun');
+      setSelectedVoice('en-US-GuyNeural');
     }
 
     toast({
