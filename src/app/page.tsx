@@ -285,12 +285,26 @@ export default function VoiceGeneratorPage() {
   };
 
   const startRecording = async () => {
+    console.log('startRecording called');
     try {
-      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        toast({ title: 'Error', description: 'Audio recording not supported', variant: 'destructive' });
+      if (typeof window === 'undefined') {
+        console.error('window is undefined');
+        toast({ title: 'Error', description: 'Audio recording not supported (no window)', variant: 'destructive' });
         return;
       }
+      if (!navigator.mediaDevices) {
+        console.error('navigator.mediaDevices is undefined - HTTPS required?');
+        toast({ title: 'Error', description: 'Audio recording not supported. Make sure you\'re on HTTPS or localhost.', variant: 'destructive' });
+        return;
+      }
+      if (!navigator.mediaDevices.getUserMedia) {
+        console.error('getUserMedia not available');
+        toast({ title: 'Error', description: 'getUserMedia not available in this browser', variant: 'destructive' });
+        return;
+      }
+      console.log('Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Microphone access granted', stream);
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
