@@ -749,7 +749,7 @@ export default function VoiceGeneratorPage() {
                             <div className="flex-1">
                               <div className="font-medium">{voice.name}</div>
                               <div className="text-sm text-muted-foreground">
-                                Created: {voice.createdAt.toLocaleString('longxiaochun')}
+                                Created: {voice.createdAt.toLocaleString('en-US')}
                               </div>
                             </div>
                             <Button
@@ -805,7 +805,7 @@ export default function VoiceGeneratorPage() {
                                   {audio.text}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  {audio.createdAt.toLocaleString('longxiaochun')}
+                                  {audio.createdAt.toLocaleString('en-US')}
                                 </p>
                               </div>
                               <div className="flex gap-2">
