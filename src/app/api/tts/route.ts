@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spawn } from 'child_process';
+import { randomUUID } from 'crypto';
+import WebSocket from 'ws';
 
-// Edge TTS voices - English focused
+// Edge TTS voices
 const VALID_VOICES = [
   { id: 'en-US-GuyNeural', name: 'Guy', description: 'Male, American' },
   { id: 'en-US-JennyNeural', name: 'Jenny', description: 'Female, American' },
@@ -17,11 +18,94 @@ const VALID_VOICES = [
 
 const VOICE_IDS = VALID_VOICES.map(v => v.id);
 
+const WSS_URL = 'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1';
+const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+
+function generateHeaders() {
+  const date = new Date().toISOString();
+  return {
+    'Pragma': 'no-cache',
+    'Cache-Control': 'no-cache',
+    'Origin': 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36 Edg/91.0.864.41',
+  };
+}
+
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+async function synthesizeSpeech(text: string, voice: string, rate: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const requestId = randomUUID().replace(/-/g, '');
+    const timestamp = new Date().toISOString();
+    const audioChunks: Buffer[] = [];
+
+    const wsUrl = `${WSS_URL}?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}&ConnectionId=${requestId}`;
+    const ws = new WebSocket(wsUrl, { headers: generateHeaders() });
+
+    const timeout = setTimeout(() => {
+      ws.close();
+      reject(new Error('TTS request timed out'));
+    }, 30000);
+
+    ws.on('open', () => {
+      // Send config
+      const configMessage = `X-Timestamp:${timestamp}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`;
+      ws.send(configMessage);
+
+      // Send SSML
+      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voice}'><prosody rate='${rate}'>${escapeXml(text)}</prosody></voice></speak>`;
+      const ssmlMessage = `X-RequestId:${requestId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${timestamp}\r\nPath:ssml\r\n\r\n${ssml}`;
+      ws.send(ssmlMessage);
+    });
+
+    ws.on('message', (data: Buffer | string) => {
+      if (Buffer.isBuffer(data)) {
+        // Binary message - contains audio data
+        const headerEnd = data.indexOf('Path:audio\r\n');
+        if (headerEnd !== -1) {
+          const audioStart = data.indexOf('\r\n\r\n', headerEnd) + 4;
+          if (audioStart > 4) {
+            audioChunks.push(data.slice(audioStart));
+          }
+        }
+      } else {
+        // Text message
+        const message = data.toString();
+        if (message.includes('Path:turn.end')) {
+          clearTimeout(timeout);
+          ws.close();
+          resolve(Buffer.concat(audioChunks));
+        }
+      }
+    });
+
+    ws.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+
+    ws.on('close', () => {
+      clearTimeout(timeout);
+      if (audioChunks.length === 0) {
+        reject(new Error('No audio data received'));
+      }
+    });
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { text, voice = 'en-US-GuyNeural', speed = 1.0 } = await req.json();
 
-    // Validate input
     if (!text || typeof text !== 'string') {
       return NextResponse.json(
         { error: 'Please provide valid text content' },
@@ -45,15 +129,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate voice
     const selectedVoice = VOICE_IDS.includes(voice) ? voice : 'en-US-GuyNeural';
 
-    // Convert speed to rate string (e.g., 1.0 -> "+0%", 1.5 -> "+50%", 0.5 -> "-50%")
+    // Convert speed to rate string
     const ratePercent = Math.round((speed - 1) * 100);
     const rateString = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
 
-    // Generate audio using edge-tts CLI
-    const audioBuffer = await generateWithEdgeTTS(trimmedText, selectedVoice, rateString);
+    const audioBuffer = await synthesizeSpeech(trimmedText, selectedVoice, rateString);
 
     return new NextResponse(audioBuffer, {
       status: 200,
@@ -74,43 +156,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function generateWithEdgeTTS(text: string, voice: string, rate: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    
-    const proc = spawn('npx', [
-      'edge-tts',
-      '--voice', voice,
-      '--rate', rate,
-      '--text', text,
-      '--write-media', '/dev/stdout'
-    ], {
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    proc.stdout.on('data', (chunk) => {
-      chunks.push(chunk);
-    });
-
-    proc.stderr.on('data', (data) => {
-      console.error('edge-tts stderr:', data.toString());
-    });
-
-    proc.on('close', (code) => {
-      if (code === 0) {
-        resolve(Buffer.concat(chunks));
-      } else {
-        reject(new Error(`edge-tts exited with code ${code}`));
-      }
-    });
-
-    proc.on('error', (err) => {
-      reject(err);
-    });
-  });
-}
-
-// GET endpoint to list available voices
 export async function GET() {
   return NextResponse.json({
     voices: VALID_VOICES,
