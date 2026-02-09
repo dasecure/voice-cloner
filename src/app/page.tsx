@@ -13,13 +13,16 @@ import { Mic, Play, Download, Trash2, Volume2, Zap, Music, Brain, AudioLines, Al
 import { toast } from '@/hooks/use-toast';
 
 const PREDEFINED_VOICES = [
-  { id: 'tongtong', name: 'Tongtong', description: 'Warm and Friendly' },
-  { id: 'chuichui', name: 'Chuichui', description: 'Lively and Cute' },
-  { id: 'xiaochen', name: 'Xiaochen', description: 'Calm and Professional' },
-  { id: 'jam', name: 'Jam', description: 'British Gentleman' },
-  { id: 'kazi', name: 'Kazi', description: 'Clear and Standard' },
-  { id: 'douji', name: 'Douji', description: 'Natural and Fluent' },
-  { id: 'luodo', name: 'Luodo', description: 'Expressive' },
+  { id: 'longxiaochun', name: 'Xiaochun', description: 'Female, warm and friendly' },
+  { id: 'longxiaoxia', name: 'Xiaoxia', description: 'Female, sweet voice' },
+  { id: 'longlaotie', name: 'Laotie', description: 'Male, mature and steady' },
+  { id: 'longshu', name: 'Shu', description: 'Male, gentle and calm' },
+  { id: 'longjielidou', name: 'Jielidou', description: 'Child, cute and playful' },
+  { id: 'longshuo', name: 'Shuo', description: 'Male, energetic' },
+  { id: 'longyue', name: 'Yue', description: 'Female, elegant' },
+  { id: 'longfei', name: 'Fei', description: 'Male, broadcaster style' },
+  { id: 'longjing', name: 'Jing', description: 'Female, professional' },
+  { id: 'longmiao', name: 'Miao', description: 'Female, lively' },
 ];
 
 const TRAINING_PASSAGES = [
@@ -63,7 +66,7 @@ interface CustomVoice {
 
 export default function VoiceGeneratorPage() {
   const [text, setText] = useState('');
-  const [selectedVoice, setSelectedVoice] = useState('tongtong');
+  const [selectedVoice, setSelectedVoice] = useState('longxiaochun');
   const [speed, setSpeed] = useState([1.0]);
   const [volume, setVolume] = useState([1.0]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -80,7 +83,7 @@ export default function VoiceGeneratorPage() {
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [trainingStage, setTrainingStage] = useState('');
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
-  const [mappedVoice, setMappedVoice] = useState('tongtong');
+  const [mappedVoice, setMappedVoice] = useState('longxiaochun');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -129,10 +132,10 @@ export default function VoiceGeneratorPage() {
       return;
     }
 
-    if (text.length > 1024) {
+    if (text.length > 2000) {
       toast({
         title: 'Error',
-        description: 'Text length cannot exceed 1024 characters',
+        description: 'Text length cannot exceed 2000 characters',
         variant: 'destructive',
       });
       return;
@@ -345,7 +348,7 @@ export default function VoiceGeneratorPage() {
     
     // Reset to default if current voice was deleted
     if (selectedVoice === id) {
-      setSelectedVoice('tongtong');
+      setSelectedVoice('longxiaochun');
     }
 
     toast({
@@ -400,7 +403,7 @@ export default function VoiceGeneratorPage() {
                   {/* Text Input */}
                   <div className="space-y-2">
                     <Label htmlFor="text-input">
-                      Enter Text <span className="text-muted-foreground">({text.length}/1024)</span>
+                      Enter Text <span className="text-muted-foreground">({text.length}/2000)</span>
                     </Label>
                     <Textarea
                       id="text-input"
@@ -408,7 +411,7 @@ export default function VoiceGeneratorPage() {
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       rows={6}
-                      maxLength={1024}
+                      maxLength={2000}
                       className="resize-none"
                     />
                   </div>
@@ -844,7 +847,7 @@ export default function VoiceGeneratorPage() {
       {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm border-t">
         <div className="container mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
-          <p>AI Voice Cloner · Powered by Qwen3 TTS · Voice Training & Cloning Demo</p>
+          <p>AI Voice Cloner · Powered by Dashscope CosyVoice · Voice Training & Cloning</p>
         </div>
       </footer>
     </div>
